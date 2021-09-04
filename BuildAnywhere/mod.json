@@ -1,0 +1,11 @@
+﻿{
+  "Id":"BuildAnywhere",
+  "DisplayName":"Build Anywhere",
+  "Author":"Fumihiko",
+  "Version":"1.0.0.1",
+  "Requires":[],
+  "Enable":true,
+  "AssemblyName":"BuildAnywhere.dll",
+  "EntryMethod":"BuildAnywhere.Main.Load",
+  "Config":{}
+}
