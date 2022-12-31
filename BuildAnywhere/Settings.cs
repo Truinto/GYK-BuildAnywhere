@@ -1,9 +1,4 @@
-﻿using System;
-using System.IO;
-using UnityEngine;
-using Oculus.Newtonsoft.Json;
-
-namespace BuildAnywhere
+﻿namespace BuildAnywhere
 {
     public class Settings
     {

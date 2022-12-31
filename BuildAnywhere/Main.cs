@@ -1,28 +1,24 @@
 ﻿//#define DATAMINING
 
+global using HarmonyLib;
+global using Newtonsoft.Json;
+global using System;
+global using System.Collections;
+global using System.Collections.Generic;
+global using System.IO;
+global using System.Linq;
+global using UnityEngine;
 using Fishing;
-//using Harmony12;
-using Harmony;
-using Oculus.Newtonsoft.Json;
-using Oculus.Newtonsoft.Json.Serialization;
-//using Newtonsoft.Json;
-//using Newtonsoft.Json.Serialization;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+using Newtonsoft.Json.Serialization;
 using System.Reflection;
 using System.Reflection.Emit;
-using UnityEngine;
 using System.Threading;
-using System.ComponentModel;
 
 namespace BuildAnywhere
 {
     public class Main
     {
-        public static HarmonyInstance harmony;
+        public static Harmony harmony;
         public static Thread hotkeys = new Thread(Hotkey.Update);
         public static void Load()
         {
@@ -35,7 +31,6 @@ namespace BuildAnywhere
 
                 Settings.i.ParseEnums();
 
-                
                 if (Settings.i.Hotkeys)
                 {
                     Hotkey.Listener.Add(new Hotkey.KeyState(Settings.i._TeleportStone));
@@ -50,9 +45,8 @@ namespace BuildAnywhere
                     Hotkey.Keypress += Datamining.HandleKeypress;
                 }
 
-                harmony = HarmonyInstance.Create("com.Fumihiko.BuildAnywhere");
+                harmony = new("com.Fumihiko.BuildAnywhere");
                 harmony.PatchAll(typeof(Main).Assembly);
-                //harmony.Patch(new Func<string, GameBalance>(Resources.Load<GameBalance>).GetMethodInfo(), prefix: null, postfix: new HarmonyMethod(typeof(Patch3).GetMethod(nameof(Patch3.Postfix))) ); //DOES NOT WORK
 
                 if (Settings.i.Hotkeys || Settings.i.VariousTests)
                 {
@@ -88,82 +82,84 @@ namespace BuildAnywhere
                 }
             }
 
-            //foreach (var recipe in GameBalance.me.craft_data)
-            //{
-            //    if (recipe.craft_in != null && recipe.craft_in.Count == 1)
-            //        PrintAll(recipe, recipe.id, "craft_data", recipe.craft_in[0].Replace(':', '.'));
-            //    else
-            //        PrintAll(recipe, recipe.id, "craft_data");
-            //}
+            foreach (var recipe in GameBalance.me.craft_data)
+            {
+                if (recipe.craft_in != null && recipe.craft_in.Count == 1)
+                    PrintAll(recipe, recipe.id, "craft_data", recipe.craft_in[0].Replace(':', '.'));
+                else
+                    PrintAll(recipe, recipe.id, "craft_data");
+            }
 
-            //foreach (var obj in GameBalance.me.craft_obj_data)
-            //{
-            //    PrintAll(obj, obj.id, "craft_obj_data");
-            //}
+            foreach (var obj in GameBalance.me.craft_obj_data)
+            {
+                PrintAll(obj, obj.id, "craft_obj_data");
+            }
 
-            //foreach (var item in GameBalance.me.items_data)
-            //{
-            //    PrintAll(item, item.id, "items_data");
-            //}
+            foreach (var item in GameBalance.me.items_data)
+            {
+                PrintAll(item, item.id, "items_data");
+            }
 
-            //foreach (var building in GameBalance.me.objs_data)
-            //{
-            //    PrintAll(building, building.id, "objs_data");
-            //}
+            foreach (var building in GameBalance.me.objs_data)
+            {
+                PrintAll(building, building.id, "objs_data");
+            }
 
-            //foreach (var perk in GameBalance.me.perks_data)
-            //{
-            //    PrintAll(perk, perk.id, "perks_data");
-            //}
+            foreach (var perk in GameBalance.me.perks_data)
+            {
+                PrintAll(perk, perk.id, "perks_data");
+            }
 
-            //foreach (var buff in GameBalance.me.buffs_data)
-            //{
-            //    PrintAll(buff, buff.id, "buffs_data");
-            //}
+            foreach (var buff in GameBalance.me.buffs_data)
+            {
+                PrintAll(buff, buff.id, "buffs_data");
+            }
 
-            //foreach (var tech in GameBalance.me.techs_data)
-            //{
-            //    PrintAll(tech, tech.id, "techs_data");
-            //}
+            foreach (var tech in GameBalance.me.techs_data)
+            {
+                PrintAll(tech, tech.id, "techs_data");
+            }
 
-            // foreach (var zone in GameBalance.me.world_zones_data)
-            // {
-            //     PrintAll(zone, zone.id, "world_zones_data");
-            // }
+            foreach (var zone in GameBalance.me.world_zones_data)
+            {
+                PrintAll(zone, zone.id, "world_zones_data");
+            }
 
-            // foreach (var vendor in GameBalance.me.vendors_data)
-            // {
-            //     PrintAll(vendor, vendor.id, "vendors_data");
-            // }
+            foreach (var vendor in GameBalance.me.vendors_data)
+            {
+                PrintAll(vendor, vendor.id, "vendors_data");
+            }
 
-            //foreach (var spawner in GameBalance.me.spawners_data)
-            //{
-            //    PrintAll(spawner, spawner.id, "spawners_data");
-            //}
+            foreach (var spawner in GameBalance.me.spawners_data)
+            {
+                PrintAll(spawner, spawner.id, "spawners_data");
+            }
 
-            //foreach (var body in GameBalance.me.bodies_data)
-            //{
-            //    PrintAll(body, body.id, "bodies_data");
-            //}
+            foreach (var body in GameBalance.me.bodies_data)
+            {
+                PrintAll(body, body.id, "bodies_data");
+            }
 
-            //var collection = AccessTools.Field(typeof(GameBalanceBase), "_datas").GetValue(GameBalance.me) as List<IList>;
-            //var c_types = AccessTools.Field(typeof(GameBalanceBase), "_types").GetValue(GameBalance.me) as List<Type>;
+            var collection = AccessTools.Field(typeof(GameBalanceBase), "_datas").GetValue(GameBalance.me) as List<IList>;
+            var c_types = AccessTools.Field(typeof(GameBalanceBase), "_types").GetValue(GameBalance.me) as List<Type>;
 
-            //if (collection != null && c_types != null)
-            //{
-            //    for (int i=0; i < c_types.Count; i++)
-            //    {
-            //        FieldInfo fi_id = c_types[i].GetField("id");
-            //        for (int j=0; j < collection.Count; j++)
-            //        {
-            //            string id = null;
-            //            if (fi_id != null)
-            //                id = fi_id.GetValue(collection[j]) as string;
+            //GameBalance.me._datas
 
-            //            PrintAll(collection[j], id ?? $"{i}.{j}", "_datas", c_types[i].ToString());
-            //        }
-            //    }
-            //}
+            if (collection != null && c_types != null)
+            {
+                for (int i = 0; i < c_types.Count; i++)
+                {
+                    FieldInfo fi_id = c_types[i].GetField("id");
+                    for (int j = 0; j < collection.Count; j++)
+                    {
+                        string id = null;
+                        if (fi_id != null)
+                            id = fi_id.GetValue(collection[j]) as string;
+
+                        PrintAll(collection[j], id ?? $"{i}.{j}", "_datas", c_types[i].ToString());
+                    }
+                }
+            }
         }
 
         public static void PrintAll(object value, string name, params string[] folders)
@@ -186,7 +182,7 @@ namespace BuildAnywhere
                     ContractResolver = new MyContractResolver()
                 });
 
-                using (StreamWriter streamReader = new StreamWriter(path))
+                using (StreamWriter streamReader = new StreamWriter(path)) // TODO make sure directory exists
                 {
                     using (JsonTextWriter jsonReader = new JsonTextWriter(streamReader))
                     {
@@ -267,7 +263,7 @@ namespace BuildAnywhere
 
     #region BuildMode
 
-    [HarmonyPatch(typeof(FlowGridCell), nameof(FlowGridCell.IsInsideWorldZone))]
+    //[HarmonyPatch(typeof(FlowGridCell), nameof(FlowGridCell.IsInsideWorldZone))]
     public class Patch_IgnoreBuildingZone
     {
         public static bool Prepare()
@@ -282,7 +278,7 @@ namespace BuildAnywhere
         }
     }
 
-    [HarmonyPatch(typeof(FloatingWorldGameObject), nameof(FloatingWorldGameObject.RecalculateAvailability))]
+    //[HarmonyPatch(typeof(FloatingWorldGameObject), nameof(FloatingWorldGameObject.RecalculateAvailability))]
     public class Patch_IgnoreOverlap
     {
         public static bool Prepare()
@@ -297,7 +293,7 @@ namespace BuildAnywhere
         }
     }
 
-    //[HarmonyPatch(typeof(WorldZone), nameof(WorldZone.GetBounds))]
+    ////[HarmonyPatch(typeof(WorldZone), nameof(WorldZone.GetBounds))]
     public class Patch_BuildFreeCam
     {
         public static bool Prepare()
@@ -315,7 +311,7 @@ namespace BuildAnywhere
 
     #region Fishing
 
-    [HarmonyPatch(typeof(FishLogic), nameof(FishLogic.CalculateFishPos))]
+    //[HarmonyPatch(typeof(FishLogic), nameof(FishLogic.CalculateFishPos))]
     public class Patch_FishingAlwaysSuccess
     {
         public static bool Prepare()
@@ -329,7 +325,7 @@ namespace BuildAnywhere
         }
     }
 
-    [HarmonyPatch(typeof(FishingGUI), "UpdateWaitingForBite")]
+    //[HarmonyPatch(typeof(FishingGUI), "UpdateWaitingForBite")]
     public class Patch_FishAlwaysBiting
     {
         public static bool Prepare()
@@ -342,7 +338,7 @@ namespace BuildAnywhere
         }
     }
 
-    [HarmonyPatch(typeof(FishingGUI), "UpdateWaitingForPulling")]
+    //[HarmonyPatch(typeof(FishingGUI), "UpdateWaitingForPulling")]
     public class Patch_PullAutomatically
     {
         public static bool Prepare()
@@ -355,7 +351,7 @@ namespace BuildAnywhere
         }
     }
 
-    [HarmonyPatch(typeof(FishingGUI), "RemoveBait")]
+    //[HarmonyPatch(typeof(FishingGUI), "RemoveBait")]
     public class Patch_NoDurabiliyLoss
     {
         public static bool Prepare()
@@ -373,8 +369,7 @@ namespace BuildAnywhere
 
     #region Items
 
-    [HarmonyPatch(typeof(Item))]
-    [HarmonyPatch(nameof(Item.durability), PropertyMethod.Setter)]
+    //[HarmonyPatch(typeof(Item), nameof(Item.durability), MethodType.Getter)]
     public class Patch_NoItemDurability
     {
         public static bool Prepare()
@@ -398,7 +393,7 @@ namespace BuildAnywhere
 
     #region Crafting
 
-    [HarmonyPatch(typeof(GameBalance), nameof(GameBalance.LoadGameBalance))]
+    //[HarmonyPatch(typeof(GameBalance), nameof(GameBalance.LoadGameBalance))]
     public class Patch_GameBalance
     {
         public static bool Prepare()
@@ -880,7 +875,7 @@ namespace BuildAnywhere
         }
     }
 
-    [HarmonyPatch(typeof(AutopsyGUI), "OnBodyItemPress")]
+    //[HarmonyPatch(typeof(AutopsyGUI), "OnBodyItemPress")]
     public class Patch_AutopsyNoConfirm
     {
         public static bool Prepare()
@@ -904,7 +899,7 @@ namespace BuildAnywhere
         }
     }
 
-    [HarmonyPatch(typeof(CraftComponent), "ProcessFinishedCraft")]
+    //[HarmonyPatch(typeof(CraftComponent), "ProcessFinishedCraft")]
     public class Patch_AutoDropIntoStorage
     {
         public static bool IsPlayer;
@@ -1077,7 +1072,7 @@ namespace BuildAnywhere
 
     }
 
-    //[HarmonyPatch(typeof(CraftComponent), "ReallyUpdateComponent")]   //works, but have no use ATM
+    ////[HarmonyPatch(typeof(CraftComponent), "ReallyUpdateComponent")]   //works, but have no use ATM
     public class Patch_CraftSpeed
     {
         public static void Prefix(ref float delta_time, CraftComponent __instance)
@@ -1091,7 +1086,7 @@ namespace BuildAnywhere
 
     #region Buffs
 
-    [HarmonyPatch(typeof(GameSave), nameof(GameSave.GenerateBody))]
+    //[HarmonyPatch(typeof(GameSave), nameof(GameSave.GenerateBody))]
     public class Patch_SkullBuff
     {
         public static System.Random rng = new System.Random();
@@ -1147,7 +1142,7 @@ namespace BuildAnywhere
 
     }
 
-    [HarmonyPatch(typeof(BuffsLogics), nameof(BuffsLogics.RecalculateBuffs))]
+    //[HarmonyPatch(typeof(BuffsLogics), nameof(BuffsLogics.RecalculateBuffs))]
     public class Patch_InfiniteBuffDuration
     {
         public static bool Prepare()
@@ -1161,7 +1156,7 @@ namespace BuildAnywhere
         }
     }
 
-    //[HarmonyPatch(typeof(PlayerBuff), nameof(PlayerBuff.GetTimerText))]
+    ////[HarmonyPatch(typeof(PlayerBuff), nameof(PlayerBuff.GetTimerText))]
     public class Patch_BuffSymbol
     {
         public static bool Prepare()

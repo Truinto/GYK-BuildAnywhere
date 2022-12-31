@@ -1,100 +1,86 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{067DF614-D989-40ED-BDBE-C47828F399FC}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>BuildAnywhere</RootNamespace>
-    <AssemblyName>BuildAnywhere</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="0Harmony">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\Assembly-CSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp.qoriginal">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\Assembly-CSharp.qoriginal.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-UnityScript-firstpass">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\Assembly-UnityScript-firstpass.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\Newtonsoft.Json.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
-    <Reference Include="UnityEngine">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>D:\Programme\Steam\SteamApps\common\Graveyard Keeper\Graveyard Keeper_Data\Managed\UnityEngine.UI.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Helper.cs" />
-    <Compile Include="Hotkey.cs" />
-    <Compile Include="Main.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Settings.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="changelog.md" />
-    <None Include="mod.json" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>xcopy /i /e /y /f "$(TargetDir)*" "D:\Programme\Steam\steamapps\common\Graveyard Keeper\QMods\BuildAnywhere"</PostBuildEvent>
-  </PropertyGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net48</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<Authors>Truinto</Authors>
+		<Title>BuildAnywhere</Title>
+		<RepositoryUrl>https://github.com/Truinto/GYK-BuildAnywhere</RepositoryUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RootNamespace>BuildAnywhere</RootNamespace>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	</PropertyGroup>
+	
+	<!-- Nuget Packages -->
+	<ItemGroup>
+	  <PackageReference Include="AssemblyPublicizer" Version="1.0.2" ExcludeAssets="runtime" />
+	  <PackageReference Include="BuildTaskVersionControl" Version="1.0.4" ExcludeAssets="runtime" />
+	</ItemGroup>
+
+	<!-- Common References -->
+	<ItemGroup>
+		<Reference Include="System" />
+		<Reference Include="System.Core" />
+		<Reference Include="System.Xml" />
+		<Reference Include="System.Xml.Linq" />
+		<Reference Include="System.Data.DataSetExtensions" />
+		<Reference Include="Microsoft.CSharp" />
+		<Reference Include="System.Data" />
+		<Reference Include="System.Net.Http" />
+	</ItemGroup>
+		
+	<!-- Project References -->
+	<ItemGroup>
+		<Reference Include="0Harmony_public" HintPath="$(GameManaged)\0Harmony_public.dll" />
+		<Reference Include="Assembly-CSharp_public" HintPath="$(GameManaged)\Assembly-CSharp_public.dll" />
+		
+		<Reference Include="Assembly-CSharp-firstpass" HintPath="$(GameManaged)\Assembly-CSharp-firstpass.dll" />
+		<Reference Include="Newtonsoft.Json" HintPath="$(GameManaged)\Newtonsoft.Json.dll" />
+                
+		<Reference Include="UnityEngine" HintPath="$(GameManaged)\UnityEngine.dll" />
+		<Reference Include="UnityEngine.CoreModule" HintPath="$(GameManaged)\UnityEngine.CoreModule.dll" />
+		<Reference Include="UnityEngine.InputLegacyModule" HintPath="$(GameManaged)\UnityEngine.InputLegacyModule.dll" />		
+		<Reference Include="UnityEngine.UI" HintPath="$(GameManaged)\UnityEngine.UI.dll" />
+	</ItemGroup>
+
+	<!-- Other Files -->
+	<ItemGroup>
+	  <None Update="changelog.md" CopyToOutputDirectory="PreserveNewest" />
+	  <None Update="mod.json" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+	<!-- Publicize -->
+	<Target Name="Publicize" BeforeTargets="PreBuildEvent" AfterTargets="">
+		<ItemGroup>
+			<PublicizeInput Include="$(GameManaged)\Assembly-CSharp.dll" />
+			<PublicizeInput Include="$(GameManaged)\0Harmony.dll" />
+		</ItemGroup>
+		<PublicizeTask InputAssemblies="@(PublicizeInput)" OutputDir="$(GameManaged)\" />
+	</Target>
+
+	<!-- Update build version -->
+	<Target Name="Versioning" BeforeTargets="PreBuildEvent">
+		<ItemGroup>
+			<VersioningInput Include="changelog.md" />
+			<VersioningOutput Include="Properties\AssemblyInfo.cs" />
+			<VersioningOutput Include="mod.json" />
+		</ItemGroup>
+		<VersioningTask InputFile="@(VersioningInput)" UpdateFiles="@(VersioningOutput)" RegexInput="\[(?'version'[\d\.]{5,})\]" RegexOutput="(?&lt;!Manager)((?:Version|v).*?)(?'version'[\d\.\*]{5,})" MaxMatch="3" TouchFiles="false" />
+	</Target>
+
+	<!-- Copy to mod folder -->
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<ItemGroup>
+			<_CopyItems Include="$(TargetDir)\*" />
+		</ItemGroup>
+
+		<Copy SourceFiles="@(_CopyItems)" DestinationFolder="$(ModFolder)\$(TargetName)\%(RecursiveDir)" />
+		
+		<Exec Condition="'$(Configuration)'=='Release'" WorkingDirectory="$(ModFolder)\" Command="&quot;$(Zip7)&quot; u &quot;-x!*.zip&quot; &quot;$(TargetName)\$(TargetName).zip&quot; @&quot;$(TargetName)\filelist.txt&quot; &gt;NUL" />
+		<Message Condition="'$(Configuration)'=='Release'" Text="Updated $(TargetName).zip" Importance="High" />		
+	</Target>
+
 </Project>
