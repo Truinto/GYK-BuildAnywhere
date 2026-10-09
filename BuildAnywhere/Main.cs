@@ -1,4 +1,4 @@
-﻿//#define DATAMINING
+//#define DATAMINING
 
 global using HarmonyLib;
 global using Newtonsoft.Json;
@@ -8,56 +8,171 @@ global using System.Collections.Generic;
 global using System.IO;
 global using System.Linq;
 global using UnityEngine;
-using Fishing;
+using QHelper = Helper;
 using Newtonsoft.Json.Serialization;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
+using System.Globalization;
+using UnityModManagerNet;
 
 namespace BuildAnywhere
 {
-    public class Main
+    public static class UnityModManagerEntry
     {
-        public static Harmony harmony;
-        public static Thread hotkeys = new Thread(Hotkey.Update);
+        internal static UnityModManager.ModEntry _ModEntry;
+
+        public static void Load(UnityModManager.ModEntry modEntry)
+        {
+            _ModEntry = modEntry;
+            modEntry.OnGUI = OnGUI;
+
+            Main.Load();
+        }
+
+        private static string[] _GameRes = ["", "hp", "energy", "progress", "money", "durability"];
+
+        private static void OnGUI(UnityModManager.ModEntry modEntry)
+        {
+            GUILayout.Label("Perks");
+            GUILayout.Space(10);
+
+            if (MainGame.me?.save is GameSave save
+                && MainGame.me.player._data._params is GameRes playerRes)
+            {
+                foreach (var perk in GameBalance.me.perks_data)
+                {
+                    string id = perk.id;
+                    bool hasPerk = save.unlocked_perks.Contains(id);
+                    if (hasPerk && GUILayout.Button($"<color=green>{perk.id}</color>", GUILayout.ExpandWidth(false)))
+                    {
+                        if (save.unlocked_perks.Contains(id))
+                        {
+                            save.unlocked_perks.Remove(id);
+                            var perkDef = GameBalance.me.GetData<PerkDefinition>(id);
+                            if (perkDef != null)
+                            {
+                                foreach (var res in perkDef.output_res.ToAtomList())
+                                {
+                                    if (_GameRes.Contains(res.type))
+                                        continue;
+
+                                    int index = playerRes._res_type.IndexOf(res.type);
+                                    if (index < 0)
+                                        continue;
+
+                                    playerRes._res_type.RemoveAt(index);
+                                    playerRes._res_v.RemoveAt(index);
+                                }
+                            }
+                        }
+                    }
+                    if (!hasPerk && GUILayout.Button($"<color=red>{perk.id}</color>", GUILayout.ExpandWidth(false)))
+                    {
+                        save.UnlockPerk(perk.id);
+                    }
+                }
+            }
+        }
+    }
+
+    public static class Main
+    {
+        public static Harmony HarmonyInstance = new("com.Truinto.BuildAnywhere");
+        public static Thread Hotkeys = new(Hotkey.Update);
+
         public static void Load()
         {
             try
             {
+                QModLoader.Load();
+            }
+            catch (Exception e)
+            {
+                Main.Log(e.ToString());
+            }
+
+            try
+            {
                 Main.Log("Loading BuildAnywhere...");
 
-                if (!Settings.i.Load())
-                    Settings.i.Save();
+                if (!Settings.Instance.Load())
+                    Settings.Instance.Save();
 
-                Settings.i.ParseEnums();
+                Settings.Instance.ParseEnums();
 
-                if (Settings.i.Hotkeys)
+                if (Settings.Instance.Hotkeys)
                 {
-                    Hotkey.Listener.Add(new Hotkey.KeyState(Settings.i._TeleportStone));
+                    Hotkey.Listener.Add(new Hotkey.KeyState(Settings.Instance.TeleportStone));
                     Hotkey.Keypress += TeleportStone.HandleKeypress;
-                    Hotkey.Listener.Add(new Hotkey.KeyState(Settings.i._TeleportMouse));
+                    Hotkey.Listener.Add(new Hotkey.KeyState(Settings.Instance.TeleportMouse));
                     Hotkey.Keypress += TeleportMouse.HandleKeypress;
                 }
 
-                if (Settings.i.VariousTests)
+                if (Settings.Instance.VariousTests)
                 {
                     Hotkey.Listener.Add(new Hotkey.KeyState(KeyCode.P));
                     Hotkey.Keypress += Datamining.HandleKeypress;
                 }
 
-                harmony = new("com.Fumihiko.BuildAnywhere");
-                harmony.PatchAll(typeof(Main).Assembly);
+                // Patches
+                if (HarmonyInstance == null) HarmonyInstance.PatchAll(Assembly.GetExecutingAssembly()); // this never runs, but is here so QMod Reloaded finds this entry point!
+                PatchSafe(typeof(Patch_Debugging));
+                PatchSafe(typeof(Patch_NoItemDurability));
+                PatchSafe(typeof(Patch_Fishing));
+                PatchSafe(typeof(Patch_AutoDropIntoStorage3));
+                PatchSafe(typeof(Patch_AutopsyNoConfirm));
+                PatchSafe(typeof(Patch_Crafting));
+                PatchSafe(typeof(Patch_QueueAccess));
+                PatchSafe(typeof(Patch_QueueMultiquality));
+                PatchSafe(typeof(Patch_QuickIncrease));
+                PatchSafe(typeof(Patch_SharedInventory));
+                PatchSafe(typeof(Patch_IgnoreOverlap));
+                PatchSafe(typeof(Patch_RotatingBalsamation));
+                //PatchSafe(typeof(Patch_TimeScale2));
 
-                if (Settings.i.Hotkeys || Settings.i.VariousTests)
+                if (Settings.Instance.Hotkeys || Settings.Instance.VariousTests)
                 {
-                    hotkeys.IsBackground = true;
-                    hotkeys.Start();
+                    Hotkeys.IsBackground = true;
+                    Hotkeys.Start();
                 }
-
             }
             catch (Exception e)
             {
                 Main.Log(e.ToString());
+            }
+        }
+
+        public static void ShowMessage(string msg, Vector3 pos, EffectBubblesManager.BubbleColor color = EffectBubblesManager.BubbleColor.Relation, float time = 3f, bool sayAsPlayer = false, SpeechBubbleGUI.SpeechBubbleType speechBubbleType = SpeechBubbleGUI.SpeechBubbleType.Think, SmartSpeechEngine.VoiceID voice = SmartSpeechEngine.VoiceID.None)
+        {
+            if (GJL.IsEastern())
+            {
+                MainGame.me.player.Say(msg, null, new bool?(false), SpeechBubbleGUI.SpeechBubbleType.Think, SmartSpeechEngine.VoiceID.None, true, null);
+                return;
+            }
+            if (sayAsPlayer)
+            {
+                MainGame.me.player.Say(msg, null, new bool?(false), speechBubbleType, voice, true, null);
+                return;
+            }
+            Vector3 vector = pos;
+            if (vector == Vector3.zero)
+            {
+                vector = MainGame.me.player.pos3;
+                vector.y += 125f;
+            }
+            EffectBubblesManager.ShowImmediately(vector, msg, color, true, time, false);
+        }
+
+        public static void PatchSafe(Type type)
+        {
+            try
+            {
+                HarmonyInstance.CreateClassProcessor(type).Patch();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
             }
         }
 
@@ -67,13 +182,39 @@ namespace BuildAnywhere
         }
     }
 
+    public static class QModLoader
+    {
+        public static void Load()
+        {
+            if (!Harmony.HasAnyPatches("p1xel8ted.GraveyardKeeper.QModHelper"))
+            {
+                Debug.Log("Force patching QModHelper");
+                QHelper.MainPatcher.Patch();
+            }
+
+            string lang = GJL.GetCurrentLocaleCode();
+            if (lang is null or "")
+                lang = "en-us";
+            lang = lang.Replace('_', '-').ToLower(CultureInfo.InvariantCulture).Trim();
+            CultureInfo culture = CultureInfo.GetCultureInfo(lang);
+
+            if (QHelper.CrossModFields.Lang == null)
+                AccessTools.Property(typeof(QHelper.CrossModFields), nameof(QHelper.CrossModFields.Lang)).SetValue(null, lang);
+            if (QHelper.CrossModFields.Culture == null)
+                AccessTools.Property(typeof(QHelper.CrossModFields), nameof(QHelper.CrossModFields.Culture)).SetValue(null, culture);
+        }
+    }
+
     #region datamining
 
     public class Datamining
     {
         public static void HandleKeypress(object sender, KeyCode key)
         {
-            var pools = SmartResourceHelper.me.GetField<Dictionary<Type, SmartResourceHelperPool>>("_pools");
+            if (key != KeyCode.P)
+                return;
+
+            var pools = SmartResourceHelper.me._pools; //SmartResourceHelper.me.GetField<Dictionary<Type, SmartResourceHelperPool>>("_pools")
             foreach (var entry in pools)
             {
                 foreach (var sub in entry.Value.loaded)
@@ -140,26 +281,25 @@ namespace BuildAnywhere
                 PrintAll(body, body.id, "bodies_data");
             }
 
-            var collection = AccessTools.Field(typeof(GameBalanceBase), "_datas").GetValue(GameBalance.me) as List<IList>;
-            var c_types = AccessTools.Field(typeof(GameBalanceBase), "_types").GetValue(GameBalance.me) as List<Type>;
+            //var collection = GameBalance.me._datas; //AccessTools.Field(typeof(GameBalanceBase), "_datas").GetValue(GameBalance.me) as List<IList>;
+            //var c_types = GameBalance.me._types; // AccessTools.Field(typeof(GameBalanceBase), "_types").GetValue(GameBalance.me) as List<Type>;
 
-            //GameBalance.me._datas
+            //if (collection != null && c_types != null)
+            //{
+            //    for (int i = 0; i < c_types.Count; i++)
+            //    {
+            //        FieldInfo fi_id = c_types[i].GetField("id");
+            //        for (int j = 0; j < collection.Count; j++)
+            //        {
+            //            string id = null;
+            //            if (fi_id != null)
+            //                id = fi_id.GetValue(collection[j]) as string;
+            //            PrintAll(collection[j], id ?? $"{i}.{j}", "_datas", c_types[i].ToString());
+            //        }
+            //    }
+            //}
 
-            if (collection != null && c_types != null)
-            {
-                for (int i = 0; i < c_types.Count; i++)
-                {
-                    FieldInfo fi_id = c_types[i].GetField("id");
-                    for (int j = 0; j < collection.Count; j++)
-                    {
-                        string id = null;
-                        if (fi_id != null)
-                            id = fi_id.GetValue(collection[j]) as string;
-
-                        PrintAll(collection[j], id ?? $"{i}.{j}", "_datas", c_types[i].ToString());
-                    }
-                }
-            }
+            Debug.Log("finished datamining!");
         }
 
         public static void PrintAll(object value, string name, params string[] folders)
@@ -182,17 +322,16 @@ namespace BuildAnywhere
                     ContractResolver = new MyContractResolver()
                 });
 
-                using (StreamWriter streamReader = new StreamWriter(path)) // TODO make sure directory exists
-                {
-                    using (JsonTextWriter jsonReader = new JsonTextWriter(streamReader))
-                    {
-                        serializer.Serialize(jsonReader, value);
+                var fi = new FileInfo(path);
+                if (fi.Exists)
+                    fi.Delete();
+                fi.Directory.Create();
 
-                        jsonReader.Close();
-                    }
-
-                    streamReader.Close();
-                }
+                using StreamWriter streamReader = new StreamWriter(path);
+                using JsonTextWriter jsonReader = new JsonTextWriter(streamReader);
+                serializer.Serialize(jsonReader, value);
+                jsonReader.Close();
+                streamReader.Close();
             }
             catch (Exception e)
             {
@@ -230,7 +369,7 @@ namespace BuildAnywhere
     {
         public static void HandleKeypress(object sender, KeyCode key)
         {
-            if (key == Settings.i._TeleportStone)
+            if (key == Settings.Instance.TeleportStone)
             {
                 Debug.Log("Manual StoneTeleport");
                 try
@@ -249,12 +388,13 @@ namespace BuildAnywhere
     {
         public static void HandleKeypress(object sender, KeyCode key)
         {
-            if (key == Settings.i._TeleportMouse)
+            if (key == Settings.Instance.TeleportMouse)
             {
-                Debug.Log("Teleport to mouse position");
                 Vector2 screenPosition = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
                 Vector2 worldPosition = MainGame.me.world_cam.ScreenToWorldPoint(screenPosition);
-                MainGame.me.player.transform.position = worldPosition;
+                Debug.Log($"teleport xy={screenPosition} world={worldPosition} distance={MainGame.me.player.transform.position.DistTo(worldPosition)}");
+                if (MainGame.me.player.transform.position.DistTo(worldPosition) < 2000f)
+                    MainGame.me.player.transform.position = worldPosition;
             }
         }
     }
@@ -268,28 +408,13 @@ namespace BuildAnywhere
     {
         public static bool Prepare()
         {
-            return Settings.i._ButtonIgnoreBuildArea != KeyCode.None;
+            return Settings.Instance.ButtonIgnoreBuildArea != KeyCode.None;
         }
 
         public static void Postfix(ref bool __result)
         {
-            if (Input.GetKey(Settings.i._ButtonIgnoreBuildArea))
+            if (Input.GetKey(Settings.Instance.ButtonIgnoreBuildArea))
                 __result = true;
-        }
-    }
-
-    //[HarmonyPatch(typeof(FloatingWorldGameObject), nameof(FloatingWorldGameObject.RecalculateAvailability))]
-    public class Patch_IgnoreOverlap
-    {
-        public static bool Prepare()
-        {
-            return Settings.i._ButtonIgnoreBuildOverlap != KeyCode.None;
-        }
-
-        public static void Postfix()
-        {
-            if (Input.GetKey(Settings.i._ButtonIgnoreBuildOverlap))
-                FloatingWorldGameObject.can_be_built = true;
         }
     }
 
@@ -309,88 +434,6 @@ namespace BuildAnywhere
 
     #endregion
 
-    #region Fishing
-
-    //[HarmonyPatch(typeof(FishLogic), nameof(FishLogic.CalculateFishPos))]
-    public class Patch_FishingAlwaysSuccess
-    {
-        public static bool Prepare()
-        {
-            return Settings.i.FishingAlwaysSuccess;
-        }
-        public static void Prefix(ref float pos, ref float rod_zone_size)
-        {
-            pos = 0f;
-            rod_zone_size = 100f;
-        }
-    }
-
-    //[HarmonyPatch(typeof(FishingGUI), "UpdateWaitingForBite")]
-    public class Patch_FishAlwaysBiting
-    {
-        public static bool Prepare()
-        {
-            return Settings.i.FishAlwaysBiting;
-        }
-        public static void Prefix(FishingGUI __instance)
-        {
-            AccessTools.Field(typeof(FishingGUI), "_waiting_for_bite_delay").SetValue(__instance, 0f);
-        }
-    }
-
-    //[HarmonyPatch(typeof(FishingGUI), "UpdateWaitingForPulling")]
-    public class Patch_PullAutomatically
-    {
-        public static bool Prepare()
-        {
-            return Settings.i.FishPullAutomatically;
-        }
-        public static void Prefix(FishingGUI __instance)
-        {
-            AccessTools.Method(typeof(FishingGUI), "ChangeState").Invoke(__instance, new object[] { FishingGUI.FishingState.Pulling });
-        }
-    }
-
-    //[HarmonyPatch(typeof(FishingGUI), "RemoveBait")]
-    public class Patch_NoDurabiliyLoss
-    {
-        public static bool Prepare()
-        {
-            return Settings.i.FishNoDurabiliyLoss;
-        }
-        public static void Postfix(Item bait)
-        {
-            if (bait.definition.has_durability)
-                bait.durability = 1;
-        }
-    }
-
-    #endregion
-
-    #region Items
-
-    //[HarmonyPatch(typeof(Item), nameof(Item.durability), MethodType.Getter)]
-    public class Patch_NoItemDurability
-    {
-        public static bool Prepare()
-        {
-            return Settings.i.AllObjectsNoDurability;
-        }
-        public static bool Prefix(Item __instance)
-        {
-            try
-            {
-                (AccessTools.Field(typeof(Item), "_params").GetValue(__instance) as GameRes).durability = 1f;
-            }
-            catch (Exception)
-            {
-            }
-            return false;
-        }
-    }
-
-    #endregion
-
     #region Crafting
 
     //[HarmonyPatch(typeof(GameBalance), nameof(GameBalance.LoadGameBalance))]
@@ -398,12 +441,12 @@ namespace BuildAnywhere
     {
         public static bool Prepare()
         {
-            return Settings.i.PGB_global;
+            return Settings.Instance.PGB_Global;
         }
         public static void Postfix()
         {
             // patching crafting recipies
-            if (Settings.i.PGB_MoreZombieRecipies)
+            if (Settings.Instance.PGB_MoreZombieRecipies)
             {
                 CraftDefinition zombiegarden = null;
                 List<CraftDefinition> tavern = new List<CraftDefinition>();
@@ -441,7 +484,7 @@ namespace BuildAnywhere
                         recipe.difficulty = 0.8f;
                     }
 
-                    else if (recipe.id == "iron_to_small" || recipe.id == "iron_to_small_2")
+                    else if (recipe.id is "iron_to_small" or "iron_to_small_2")
                     {
                         recipe.SetChanceOutputSelf("nugget_gold", "Ppar(\"p_t_gold_ore\")*0.3", 2);
                     }
@@ -453,12 +496,12 @@ namespace BuildAnywhere
                         recipe.dont_close_window_on_craft = true;
                     }
 
-                    else if (recipe.id == "candelabrum_3_to_3_3" || recipe.id == "wall_candelabrum_3_to_3_3")
+                    else if (recipe.id is "candelabrum_3_to_3_3" or "wall_candelabrum_3_to_3_3")
                     {
                         recipe.craft_after_finish = "";
                     }
 
-                    else if (recipe.id == "firewood" || recipe.id == "spike_1")
+                    else if (recipe.id is "firewood" or "spike_1")
                     {
                         recipe.craft_in.Add("mf_saw_1");
                     }
@@ -476,108 +519,108 @@ namespace BuildAnywhere
                     recipe.craft_time.FromString(recipe.craft_time.GetRawExpressionString().Replace("WGOpar(\"buff_plant\")", "Ppar(\"buff_plant\")"));
                 }
 
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_stone_to_sand",
                     "mf_hammer_1",
                     2f,
                     2f,
                     false,
                     0,
-                    new Item[] { new Item("stone_plate_1").MinValue(1) },
-                    new Item[] { new Item("sand_river").MinValue(6), new Item("clay").MinValue(2) },
+                    [new Item("stone_plate_1").MinValue(1)],
+                    [new Item("sand_river").MinValue(6), new Item("clay").MinValue(2)],
                     tab: "stone"
                 ));
 
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_marble_plate_3_1",
                     "mf_hammer_1",
                     20f,
                     3f,
                     false,
                     0,
-                    new Item[] { new Item("chisel:chisel_2:1").MinValue(1), new Item("marble_plate_2").MinValue(1), new Item("faith").MinValue(5) },
-                    new Item[] { new Item("marble_plate_3:1").MinValue(1), new Item("r", 3), new Item("g"), new Item("b", 2) },
+                    [new Item("chisel:chisel_2:1").MinValue(1), new Item("marble_plate_2").MinValue(1), new Item("faith").MinValue(5)],
+                    [new Item("marble_plate_3:1").MinValue(1), new Item("r", 3), new Item("g"), new Item("b", 2)],
                     tab: "stone",
                     takedurability: 0.1f
                 ));
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_marble_plate_3_2",
                     "mf_hammer_1",
                     20f,
                     3f,
                     false,
                     0,
-                    new Item[] { new Item("chisel:chisel_2:2").MinValue(1), new Item("marble_plate_2").MinValue(1), new Item("faith").MinValue(5) },
-                    new Item[] { new Item("marble_plate_3:2").MinValue(1), new Item("r", 3), new Item("g"), new Item("b", 2) },
+                    [new Item("chisel:chisel_2:2").MinValue(1), new Item("marble_plate_2").MinValue(1), new Item("faith").MinValue(5)],
+                    [new Item("marble_plate_3:2").MinValue(1), new Item("r", 3), new Item("g"), new Item("b", 2)],
                     tab: "stone",
                     takedurability: 0.1f
                 ));
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_marble_plate_3_3",
                     "mf_hammer_1",
                     20f,
                     3f,
                     false,
                     0,
-                    new Item[] { new Item("chisel:chisel_2:3").MinValue(1), new Item("marble_plate_2").MinValue(1), new Item("faith").MinValue(5) },
-                    new Item[] { new Item("marble_plate_3:3").MinValue(1), new Item("r", 3), new Item("g"), new Item("b", 2) },
+                    [new Item("chisel:chisel_2:3").MinValue(1), new Item("marble_plate_2").MinValue(1), new Item("faith").MinValue(5)],
+                    [new Item("marble_plate_3:3").MinValue(1), new Item("r", 3), new Item("g"), new Item("b", 2)],
                     tab: "stone",
                     takedurability: 0.1f
                 ));
 
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_wood_to_ash",
                     "mf_furnace_2",
                     3f,
                     0f,
                     true,
                     0,
-                    new Item[] { new Item("wood1", 5).MinValue(5) },
-                    new Item[] { new Item("ash", 5).MinValue(5) },
+                    [new Item("wood1", 5).MinValue(5)],
+                    [new Item("ash", 5).MinValue(5)],
                     tab: ""
                 ));
 
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_cup_mead_zombie_1",
                     "mf_zombie_brewing",
                     0f,
                     120f,
                     false,
                     0,
-                    new Item[] { new Item("water").MinValue(50), new Item("hop_crop:1").MinValue(3), new Item("honey").MinValue(1) },
-                    new Item[] { new Item("cup_mead:1").MinValue(10) }
+                    [new Item("water").MinValue(50), new Item("hop_crop:1").MinValue(3), new Item("honey").MinValue(1)],
+                    [new Item("cup_mead:1").MinValue(10)]
                 ));
 
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_cup_mead_zombie_2",
                     "mf_zombie_brewing",
                     0f,
                     120f,
                     false,
                     0,
-                    new Item[] { new Item("water").MinValue(50), new Item("hop_crop:2").MinValue(3), new Item("honey").MinValue(1) },
-                    new Item[] { new Item("cup_mead:2").MinValue(10) }
+                    [new Item("water").MinValue(50), new Item("hop_crop:2").MinValue(3), new Item("honey").MinValue(1)],
+                    [new Item("cup_mead:2").MinValue(10)]
                 ));
 
-                GameBalance.me.craft_data.Add(Helper.CreateCraftDefinition(
+                GameBalance.me.craft_data.Add(HelperGYK.CreateCraftDefinition(
                     "_cup_mead_zombie_3",
                     "mf_zombie_brewing",
                     0f,
                     120f,
                     false,
                     0,
-                    new Item[] { new Item("water").MinValue(50), new Item("hop_crop:3").MinValue(3), new Item("honey").MinValue(1) },
-                    new Item[] { new Item("cup_mead:3").MinValue(10) }
+                    [new Item("water").MinValue(50), new Item("hop_crop:3").MinValue(3), new Item("honey").MinValue(1)],
+                    [new Item("cup_mead:3").MinValue(10)]
                 ));
 
-                var fuel_big = Helper.CreateCraftDefinition(
+                var fuel_big = HelperGYK.CreateCraftDefinition(
                     "_fuel_firewood_large",
                     "oven",
                     0f,
                     0f,
                     true,
                     100,
-                    new Item[] { new Item("fire").MinValue(3000) },
+                    [new Item("fire").MinValue(3000)],
                     tab: "fuel",
                     icon: "i_fire"
                 );
@@ -592,7 +635,7 @@ namespace BuildAnywhere
 
                 if (zombiegarden != null)
                 {
-                    var hamp = Helper.Clone(zombiegarden);
+                    var hamp = HelperGYK.Clone(zombiegarden);
                     hamp.id = "_garden_cannabis_grow_desk_planting";
                     //hamp.output_res_wgo = new GameRes("hamp", -1f);//wheat
                     //hamp.output_set_res_wgo = new GameRes("hamp", 1f);
@@ -620,14 +663,12 @@ namespace BuildAnywhere
                 {
                     try
                     {
-                        if (obj.id.EndsWith("_ready") && obj.drop_items != null)    // TODO: check difference
+                        if (obj.id.EndsWith("_ready") && obj.drop_items != null)
                         {
                             foreach (var drop in obj.drop_items)
                             {
-                                if (drop.min_value != null)
-                                    drop.min_value.FromString(drop.min_value.GetRawExpressionString().Replace("WGOpar(\"p_farmer\")", "Ppar(\"p_farmer\")"));
-                                if (drop.max_value != null)
-                                    drop.max_value.FromString(drop.max_value.GetRawExpressionString().Replace("WGOpar(\"p_farmer\")", "Ppar(\"p_farmer\")"));
+                                drop.min_value?.FromString(drop.min_value.GetRawExpressionString().Replace("WGOpar(\"p_farmer\")", "Ppar(\"p_farmer\")"));
+                                drop.max_value?.FromString(drop.max_value.GetRawExpressionString().Replace("WGOpar(\"p_farmer\")", "Ppar(\"p_farmer\")"));
                             }
                         }
                     }
@@ -638,12 +679,12 @@ namespace BuildAnywhere
                 }
             }
 
-            if (Settings.i.PGB_LinkStorageWellPump)
+            if (Settings.Instance.PGB_LinkStorageWellPump)
             {
                 foreach (var building in GameBalance.me.objs_data)
                 {
-                    if (building.id == "tavern_kitchen"
-                        || building.id == "tavern_oven"
+                    if (building.id is "tavern_kitchen"
+                        or "tavern_oven"
                         //|| building.id == "alchemy_table_zombie"
                         )
                     {
@@ -652,8 +693,8 @@ namespace BuildAnywhere
                         building.additional_worldzone_inventories.Add("vineyard");
                         //building.additional_worldzone_inventories.Add("home");
                     }
-                    else if (building.id == "cooking_table"
-                        || building.id == "oven"
+                    else if (building.id is "cooking_table"
+                        or "oven"
                         )
                     {
                         building.additional_worldzone_inventories.Add("mf_wood");
@@ -704,7 +745,7 @@ namespace BuildAnywhere
                 //foreach (var vendor in GameBalance.me.vendors_data) {}
             }
 
-            if (Settings.i.PGB__AllBuildingsAtAllBlueprintDesks)
+            if (Settings.Instance.PGB__AllBuildingsAtAllBlueprintDesks)
             {
                 HashSet<string> blueprint_desks = new HashSet<string>();
                 foreach (var blueprint in GameBalance.me.craft_obj_data)
@@ -725,9 +766,9 @@ namespace BuildAnywhere
 
             // recalc caches
             GameBalance.me.CreateIDsCache();
-            AccessTools.Method(typeof(GameBalance), "CreateItemsBaseNameCache").Invoke(GameBalance.me, new object[0]);
-            AccessTools.Method(typeof(GameBalance), "CreateToolsCache").Invoke(GameBalance.me, new object[0]);
-            AccessTools.Method(typeof(GameBalance), "CreateCraftsCache").Invoke(GameBalance.me, new object[0]);
+            AccessTools.Method(typeof(GameBalance), "CreateItemsBaseNameCache").Invoke(GameBalance.me, []);
+            AccessTools.Method(typeof(GameBalance), "CreateToolsCache").Invoke(GameBalance.me, []);
+            AccessTools.Method(typeof(GameBalance), "CreateCraftsCache").Invoke(GameBalance.me, []);
             ObjectGroupDefinition.LinkObjectsToGroups();
         }
 
@@ -747,7 +788,7 @@ namespace BuildAnywhere
             {
                 for (int k = 0; k < 3; k++)
                 {
-                    CraftDefinition craft = Helper.Clone(recipe);
+                    CraftDefinition craft = HelperGYK.Clone(recipe);
                     craft.needs_unlock = false;
                     craft.id = $"_{recipe.id}_{k}_{i}";
                     craft.enqueue_type = CraftDefinition.EnqueueType.CanEnqueue;
@@ -815,7 +856,7 @@ namespace BuildAnywhere
 
                 for (int i = 0; i < input_max; i++)
                 {
-                    CraftDefinition craft = Helper.Clone(recipe);
+                    CraftDefinition craft = HelperGYK.Clone(recipe);
                     craft.needs_unlock = false;
                     craft.id = $"_{recipe.id}_{i}";
                     craft.enqueue_type = CraftDefinition.EnqueueType.CanEnqueue;
@@ -828,7 +869,7 @@ namespace BuildAnywhere
                         craft.needs.Add(recipe.needs[index_input]);  //special case fillet
 
                     int quality = (int)craft.needs[0].definition.quality - 1;
-                    if (quality < 0 || quality >= 3)
+                    if (quality is < 0 or >= 3)
                     {
                         Main.Log($"SplitRecipeX recipe {recipe.id} has no quality after all"); //fillet no quality
                         continue;
@@ -875,121 +916,19 @@ namespace BuildAnywhere
         }
     }
 
-    //[HarmonyPatch(typeof(AutopsyGUI), "OnBodyItemPress")]
-    public class Patch_AutopsyNoConfirm
-    {
-        public static bool Prepare()
-        {
-            return Settings.i.AutopsyNoConfirm;
-        }
-        public static bool Prefix(BaseItemCellGUI item_gui, AutopsyGUI __instance)
-        {
-            if (item_gui.item.id == "insertion_button_pseudoitem")
-                return true;
-
-            CraftDefinition craft_definition = AccessTools.Method(typeof(AutopsyGUI), "GetExtractCraftDefinition").Invoke(__instance, new object[] { item_gui.item }) as CraftDefinition;
-            if (craft_definition == null)
-                return true;
-
-            AccessTools.Method(typeof(AutopsyGUI), "RemoveBodyPartFromBody").Invoke(null, new object[] { __instance.GetField<Item>("_body"), item_gui.item });
-            __instance.GetField<WorldGameObject>("_autopti_obj").components.craft.CraftAsPlayer(craft_definition, item_gui.item, null, null, false, 1);
-            __instance.Hide(true);
-
-            return false;
-        }
-    }
-
-    //[HarmonyPatch(typeof(CraftComponent), "ProcessFinishedCraft")]
+    //[HarmonyPatch(typeof(CraftComponent), nameof(CraftComponent.ProcessFinishedCraft))]
     public class Patch_AutoDropIntoStorage
     {
         public static bool IsPlayer;
 
         public static bool Prepare()
         {
-            return Settings.i.AutoDropIntoStorage;
-        }
-
-        public static void __Prefix(CraftComponent __instance, out int? __state)
-        {
-            __state = null;
-            Main.Log($"Patch_AutoDropIntoStorage start");
-            if (__instance.current_craft == null || __instance.current_craft.flag != 0)
-                return;
-            Main.Log($"Patch_AutoDropIntoStorage: id={__instance.current_craft.id}");
-
-            //if (__instance.current_craft != null) Patch_GameBalance.PrintAll("crafts\\" + __instance.current_craft.id.Replace(':','.') + ".json", __instance.current_craft);
-
-            var other_obj = __instance.GetField<WorldGameObject>("other_obj");
-
-            if (__instance.current_craft != null
-                && __instance.current_craft.flag != 1
-                && (other_obj == null || !other_obj.is_player)
-                && (__instance.current_craft.is_auto || Settings.i.ZombieDropTechOrbs)
-                && __instance.current_craft.craft_type != CraftDefinition.CraftType.Survey
-                && __instance.wgo.obj_id != "tavern_kitchen" && __instance.wgo.obj_id != "tavern_oven"
-                && !__instance.current_craft.IsBodyPartExtractionCraft()
-                && !__instance.current_craft.IsBodyPartInsertionCraft()
-                && (__instance.current_craft.output_to_wgo == null || __instance.current_craft.output_to_wgo.Count == 0)
-                && !(__instance.current_craft.IsMultiqualityOutput() && __instance.GetField("_multiquality_craft_result") != null))
-            {
-                __instance.wgo.OnBeganObjectModifications();
-                List<Item> list = new List<Item>();
-                list = ResModificator.ProcessItemsListBeforeDrop(__instance.current_craft.output, __instance.wgo,
-                    __instance.HasLinkedWorker() ? MainGame.me.player : other_obj);
-
-                Main.Log("Patch_AutoDropIntoStorage: output=" + string.Join(", ", list));
-
-                List<Item> tech_points = list.Where(s => s.is_tech_point).ToList();
-                list.RemoveAll(s => s.is_tech_point);
-
-
-                List<Item> list2;
-
-                if (__instance.HasLinkedWorker() && !__instance.wgo.CanPutToAllPossibleInventories(list, out list2))
-                {
-                    Main.Log("Pausing worker");
-                    __instance.wgo.progress = 0.999999f;
-                    typeof(CraftComponent).Invoke("SetWorkerPausedMode", __instance, true);
-                    __instance.SetField("_time_worker_tried_to_continue_craft", 1f);
-                    __instance.wgo.linked_worker.components.character.SetNoWorkerTool();
-                }
-                else
-                {
-                    if (tech_points.Count > 0)
-                        __instance.wgo.DropItems(tech_points);
-
-                    __instance.wgo.PutToAllPossibleInventories(list, out list2);
-                    if (list2 != null && list2.Count > 0)
-                    {
-                        Main.Log("PutToAllPossibleInventories had leftovers: " + string.Join(", ", list2));
-                        __instance.wgo.DropItems(list2);
-                    }
-
-                    if (__instance.current_craft.takes_item_durability)
-                    {
-                        //var _current_item = __instance.GetField<Item>("_current_item");
-                        if (__instance.GetField<Item>("_dur_item") != null)
-                            typeof(CraftComponent).Invoke("DropDurItem", __instance);
-                    }
-
-                    __state = __instance.current_craft.flag;
-                    __instance.current_craft.flag = 1;
-                }
-
-            }
-
-            return;
-        }
-
-        public static void __Postfix(CraftComponent __instance, int? __state)
-        {
-            if (__instance.current_craft != null && __state.HasValue)
-                __instance.current_craft.flag = __state.Value;
+            return Settings.Instance.AutoDropIntoStorage;
         }
 
         public static void Prefix(CraftComponent __instance)
         {
-            var other_obj = __instance.GetField<WorldGameObject>("other_obj");
+            var other_obj = __instance.other_obj; //__instance.GetField<WorldGameObject>("other_obj");
             IsPlayer = (other_obj != null && other_obj.is_player);
 
             Main.Log($"Patch_AutoDropIntoStorage: id={__instance.current_craft?.id}");
@@ -1003,14 +942,14 @@ namespace BuildAnywhere
             int j = 0;
             foreach (var line in code)
             {
-                if (line.opcode == OpCodes.Callvirt && (line.operand as MethodInfo) == typeof(WorldGameObject).GetMethod("DropItems"))
+                if (line.opcode == OpCodes.Callvirt && (line.operand as MethodInfo) == typeof(WorldGameObject).GetMethod(nameof(WorldGameObject.DropItems)))
                 {
-                    line.operand = typeof(Patch_AutoDropIntoStorage).GetMethod("InjectionDropItem");
+                    line.operand = typeof(Patch_AutoDropIntoStorage).GetMethod(nameof(InjectionDropItem));
                     ++i;
                 }
-                else if (line.opcode == OpCodes.Call && (line.operand as MethodInfo) == typeof(ResModificator).GetMethod("ProcessItemsListBeforeDrop"))
+                else if (line.opcode == OpCodes.Call && (line.operand as MethodInfo) == typeof(ResModificator).GetMethod(nameof(ResModificator.ProcessItemsListBeforeDrop)))
                 {
-                    line.operand = typeof(Patch_AutoDropIntoStorage).GetMethod("InjectionProcessItems");
+                    line.operand = typeof(Patch_AutoDropIntoStorage).GetMethod(nameof(InjectionProcessItems));
                     if (++j >= 2)
                         break;
                 }
@@ -1022,11 +961,38 @@ namespace BuildAnywhere
             return code;
         }
 
-        public static List<Item> InjectionProcessItems(List<Item> items, WorldGameObject wgo, WorldGameObject character)
+        public static void InjectionDropItem(WorldGameObject wgo, List<Item> items, Direction direction)
+        {
+            if (Settings.Instance.AutoDropIntoStorage
+                && (!IsPlayer || items.Count == 0 || items[0].definition == null || items[0].definition.stack_count > 1 || Settings.Instance.AutoDropIntoStoragePlayerStacks)
+                && (!IsPlayer || Settings.Instance.AutoDropIntoStoragePlayerAll))
+            {
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (items[i].is_tech_point)
+                    {
+                        items.RemoveAt(i);
+                        i--;
+                    }
+                }
+
+                wgo.PutToAllPossibleInventories(items, out List<Item> items2);
+                if (items2 != null && items2.Count > 0)
+                {
+                    wgo.DropItems(items2, direction);
+                }
+            }
+            else
+            {
+                wgo.DropItems(items, direction);
+            }
+        }
+
+        public static List<Item> InjectionProcessItems(List<Item> items, WorldGameObject wgo, WorldGameObject character, Item exclude_item = null)
         {
             List<Item> result = ResModificator.ProcessItemsListBeforeDrop(items, wgo, character);
 
-            if (Settings.i.ZombieDropTechOrbs)
+            if (Settings.Instance.ZombieDropTechOrbs)
             {
                 List<Item> techorbs = new List<Item>();
                 foreach (Item item in result)
@@ -1041,35 +1007,6 @@ namespace BuildAnywhere
 
             return result;
         }
-
-        public static void InjectionDropItem(WorldGameObject wgo, List<Item> items, Direction direction)
-        {
-            if (Settings.i.AutoDropIntoStorage
-                && (!IsPlayer || items.Count == 0 || items[0].definition == null || items[0].definition.stack_count > 1 || Settings.i.AutoDropIntoStoragePlayerStacks)
-                && (!IsPlayer || Settings.i.AutoDropIntoStoragePlayerAll))
-            {
-                for (int i = 0; i < items.Count; i++)
-                {
-                    if (items[i].is_tech_point)
-                    {
-                        items.RemoveAt(i);
-                        i--;
-                    }
-                }
-
-                List<Item> items2;
-                wgo.PutToAllPossibleInventories(items, out items2);
-                if (items2 != null && items2.Count > 0)
-                {
-                    wgo.DropItems(items2, Direction.None);
-                }
-            }
-            else
-            {
-                wgo.DropItems(items, direction);
-            }
-        }
-
     }
 
     ////[HarmonyPatch(typeof(CraftComponent), "ReallyUpdateComponent")]   //works, but have no use ATM
@@ -1089,11 +1026,11 @@ namespace BuildAnywhere
     //[HarmonyPatch(typeof(GameSave), nameof(GameSave.GenerateBody))]
     public class Patch_SkullBuff
     {
-        public static System.Random rng = new System.Random();
+        public static System.Random RNG = new();
 
         public static bool Prepare()
         {
-            return Settings.i.CorpseBuff;
+            return Settings.Instance.CorpseBuff;
         }
 
         public static void Prefix(ref int tier_min, ref int tier_max)
@@ -1110,7 +1047,7 @@ namespace BuildAnywhere
         {
             if (tier_min <= 3 && BuffsLogics.FindBuffByID("buff_skull") != null)
             {
-                switch (rng.Next(1, 7))
+                switch (RNG.Next(1, 7))
                 {
                     case 1:
                         __result.inventory.RemoveAll(s => s.id.StartsWith("brain"));
@@ -1139,7 +1076,6 @@ namespace BuildAnywhere
                 }
             }
         }
-
     }
 
     //[HarmonyPatch(typeof(BuffsLogics), nameof(BuffsLogics.RecalculateBuffs))]
@@ -1147,7 +1083,7 @@ namespace BuildAnywhere
     {
         public static bool Prepare()
         {
-            return Settings.i.InfiniteBuffs;
+            return Settings.Instance.InfiniteBuffs;
         }
 
         public static bool Prefix()
@@ -1161,7 +1097,7 @@ namespace BuildAnywhere
     {
         public static bool Prepare()
         {
-            return Settings.i.InfiniteBuffs;
+            return Settings.Instance.InfiniteBuffs;
         }
 
         public static bool Prefix(ref string __result)

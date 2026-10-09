@@ -1,12 +1,80 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 
 namespace BuildAnywhere
 {
-    public static class Helper
+    public static class HelperGYK
     {
+        private static MethodInfo _MemberwiseClone = AccessTools.Method(typeof(object), "MemberwiseClone");
+        public static T Clone<T>(this T obj, Action<T> action = null) where T : class
+        {
+            // TODO: check if AccessTools works!
+            //var result = AccessTools.MakeDeepCopy<T>(obj);
+            //action?.Invoke(result);
+            //return result;
+
+            var result = (T)_MemberwiseClone.Invoke(obj, null);
+
+            // deep copy certain type of fields by reflection
+            foreach (var fi in typeof(T).GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                //if (fi.FieldType.IsValueType)
+                //    continue;
+                //var old = fi.GetValue(result);
+                //if (old == null)
+                //    continue;
+                //fi.SetValue(result, old.Clone());
+                //continue;
+
+                // deep copy ToolsActions
+                if (fi.FieldType == typeof(ToolActions) && fi.GetValue(result) is ToolActions oldTools)
+                {
+                    var newTools = new ToolActions
+                    {
+                        action_tools = new(oldTools.action_tools),
+                        action_k = new(oldTools.action_k),
+                    };
+                    fi.SetValue(result, newTools);
+                    continue;
+                }
+
+                if (fi.FieldType == typeof(GameRes) && fi.GetValue(result) is GameRes oldRes)
+                {
+                    fi.SetValue(result, oldRes?.Clone());
+                    continue;
+                }
+
+                if (fi.FieldType == typeof(SmartExpression) && fi.GetValue(result) is SmartExpression oldExp)
+                {
+                    var newExp = new SmartExpression
+                    {
+                        _expression = oldExp._expression,
+                        _simplified = oldExp._simplified,
+                        _simpified_float = oldExp._simpified_float
+                    };
+                    fi.SetValue(result, newExp);
+                    continue;
+                }
+
+                // deep copy fields from type IList; does not deep copy entries in those lists
+                if (!typeof(IList).IsAssignableFrom(fi.FieldType))
+                    continue;
+
+                object oldfield = fi.GetValue(result);
+                object newfield = fi.FieldType.GetConstructor([fi.FieldType])?.Invoke([oldfield]);
+                newfield ??= fi.FieldType.GetConstructor([])?.Invoke([]);
+                if (newfield != null)
+                    fi.SetValue(result, newfield);
+            }
+
+            action?.Invoke(result);
+            return result;
+        }
+
         public static object GetField(this object obj, string name)
         {
             return AccessTools.Field(obj.GetType(), name).GetValue(obj);
@@ -105,7 +173,7 @@ namespace BuildAnywhere
         public static CraftDefinition CreateCraftDefinition(string recipe_id, string crafting_station, float energy, float time, bool isAuto, int fuel = 0, Item[] input = null, Item[] output = null, string tab = "", string icon = "", float takedurability = 0f)
         {
             var result = new CraftDefinition();
-            
+
             result.energy = SmartExpression.ParseExpression(energy.ToString());
             result.craft_time = SmartExpression.ParseExpression(time.ToString());
             result.sanity = SmartExpression.ParseExpression("0.0");
@@ -116,11 +184,11 @@ namespace BuildAnywhere
             result.is_auto = isAuto;
             result.dur_needs_item = takedurability;
 
-            if (icon == "" && output!=null && output.Length > 1)
+            if (icon == "" && output != null && output.Length > 1)
                 result.icon = GetIcon(output) ?? GetIcon(input);
             else
                 result.icon = icon;
-            
+
             if (fuel > 0)
                 result.output_to_wgo.Add(new Item("fire").MinValue(fuel));
             else if (fuel < 0)
@@ -159,11 +227,11 @@ namespace BuildAnywhere
         public static CraftDefinition SetChanceOutputGroup(this CraftDefinition recipe, int start, int length, int group, params float[] chances)
         {
             // SmartExpression self_chance;
-	        // SmartExpression common_chance;
+            // SmartExpression common_chance;
 
             float total = 0;
 
-            for (int i=start, j=0; i < recipe.output.Count && j < chances.Length && j < length; i++, j++)
+            for (int i = start, j = 0; i < recipe.output.Count && j < chances.Length && j < length; i++, j++)
             {
                 total += chances[j];
                 recipe.output[i].common_chance = SmartExpression.ParseExpression(chances[j].ToString());
@@ -180,7 +248,7 @@ namespace BuildAnywhere
         {
             return SetChanceOutputSelf(recipe, recipe.output.FindIndex(s => s.id == item_id), chance, dropamount);
         }
-        
+
         // something like "Ppar(\"p_t_gold_ore\")*(0.05+Ppar(\"p_miner\")*0.05)" or "0.1"
         public static CraftDefinition SetChanceOutputSelf(this CraftDefinition recipe, int index, string chance, int? dropamount)
         {
@@ -199,9 +267,31 @@ namespace BuildAnywhere
             return recipe;
         }
 
-        public static Item NewItem()
+        public static Item NewItem(string id, int amount = 1, string min_value = null, string max_value = null, string chance = null)
         {
-            return null;
+            var item = new Item(id, amount)
+            {
+                min_value = new(),
+                max_value = new(),
+                chance_group = -1,
+                self_chance = new(),
+            };
+
+            if (item.definition == null)
+                Debug.LogError($"[exception] item id '{id}' does not exist");
+
+            item.min_value.FromString(min_value ?? "");
+            item.max_value.FromString(max_value ?? "");
+            item.self_chance.FromString(chance ?? "1.0");
+            item._params._durability = 1f;
+            return item;
+        }
+
+        public static SmartExpression NewExpression(string value)
+        {
+            var result = new SmartExpression();
+            result.FromString(value);
+            return result;
         }
 
         /// <summary>Required if item is in the output of crafting recipies.</summary>
@@ -221,7 +311,7 @@ namespace BuildAnywhere
 
             if (items == null)
                 return result;
-            
+
             foreach (Item item in items)
             {
                 result = item.GetIcon();

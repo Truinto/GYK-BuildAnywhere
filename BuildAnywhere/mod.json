@@ -1,11 +1,13 @@
 {
-  "Id":"BuildAnywhere",
-  "DisplayName":"Build Anywhere",
-  "Author":"Fumihiko",
-  "Version":"1.0.4",
-  "Requires":[],
-  "Enable":true,
-  "AssemblyName":"BuildAnywhere.dll",
-  "EntryMethod":"BuildAnywhere.Main.Load",
-  "Config":{}
+  "Id": "BuildAnywhere",
+  "DisplayName": "Build Anywhere",
+  "Description": "Mod for GYK",
+  "Author": "Truinto",
+  "Version": "1.0.4",
+  "AssemblyName": "BuildAnywhere.dll",
+  "EntryMethod": "BuildAnywhere.UnityModManagerEntry.Load",
+  "NexusID": 21,
+  "LoadOrder": 10,
+  "Enable": true,
+  "UpdateAvailable": false
 }

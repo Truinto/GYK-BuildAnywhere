@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <Zip7>C:\Program Files\7-Zip\7z.exe</Zip7>
-    <SteamFolder>D:\Programme\Steam\steamapps\common\</SteamFolder>
-    <GameManaged Condition="Exists('$(SteamFolder)')">$(SteamFolder)Graveyard Keeper\Graveyard Keeper_Data\Managed</GameManaged>
-    <GameManaged Condition="!Exists('$(SteamFolder)')">..\..\..\$non-backup\GYK sources</GameManaged>
-    <ModFolder Condition="Exists('$(SteamFolder)')">$(SteamFolder)Graveyard Keeper\QMods</ModFolder>
-    <ModFolder Condition="!Exists('$(SteamFolder)')">..\..\..\$non-backup\GYK sources</ModFolder>
+    <ProgramFolder>C:/Program Files (x86)/Steam/steamapps/common/</ProgramFolder>
+    <GameManaged>$(ProgramFolder)Graveyard Keeper/Graveyard Keeper_Data/Managed</GameManaged>
+    <GameManaged Condition="!Exists('$(GameManaged)')">$(SolutionDir)../1st_sources/GYK sources</GameManaged>
+    <ModFolder>$(ProgramFolder)Graveyard Keeper/QMods</ModFolder>
+    <ModFolder Condition="!Exists('$(ModFolder)')">$(SolutionDir)../1st_sources/GYK sources</ModFolder>
   </PropertyGroup>
 </Project>

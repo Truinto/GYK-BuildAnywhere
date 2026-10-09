@@ -1,0 +1,10 @@
+{
+  "Releases":
+  [
+    {
+      "Id": "BuildAnywhere",
+      "Version": "1.0.4",
+      "DownloadUrl": "https://github.com/Truinto/GYK-BuildAnywhere/releases/download/1.0.4/BuildAnywhere.zip"
+    }
+  ]
+}

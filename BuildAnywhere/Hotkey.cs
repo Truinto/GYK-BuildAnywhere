@@ -1,48 +1,21 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace BuildAnywhere
 {
-    public class Hotkey
+    public class Hotkey // replace this with LazyInput.GetKeyDown
     {
-        public static List<KeyState> Listener = new List<KeyState>();
+        public static List<KeyState> Listener = new();
 
         public static void Update()
         {
-            // while (true)
-            // {
-            //     if (!MainGame.paused && MainGame.game_started && Input.GetKey(KeyCode.H))
-            //     {
-            //         if (!flag)
-            //         {
-            //             Debug.Log("Manual StoneTeleport");
-            //             try
-            //             {
-            //                 GS.RunFlowScript("StoneTeleport", null);
-            //             }
-            //             catch (Exception ex)
-            //             {
-            //                 Debug.Log("Wups " + ex.ToString());
-            //             }
-
-            //             flag = true;
-            //         }
-            //     }
-            //     else
-            //     {
-            //         flag = false;
-            //     }
-
-            //     Thread.Sleep(50);
-            // }
-
             while (true)
             {
                 if (!MainGame.paused && MainGame.game_started)
                 {
                     foreach (var l in Listener)
                     {
-                        Debug.Log("[BuildAnywhere] Checking for button: " + l.Key);
+                        //Debug.Log("[BuildAnywhere] Checking for button: " + l.Key);
 
                         if (Input.GetKey(l.Key))
                             Debug.Log("[BuildAnywhere] Button pressed");
@@ -52,7 +25,7 @@ namespace BuildAnywhere
                             Debug.Log("[BuildAnywhere] State triggered");
                             l.State = !l.State;
                             if (l.State == false)
-                                Keypress?.Invoke(null, l.Key);
+                                try { Keypress?.Invoke(null, l.Key); } catch (Exception e) { Debug.LogException(e); }
                         }
                     }
                 }
@@ -64,7 +37,6 @@ namespace BuildAnywhere
 
                 Thread.Sleep(50);
             }
-
         }
 
         public static event EventHandler<KeyCode> Keypress;
@@ -101,7 +73,7 @@ namespace BuildAnywhere
 
 
         ////[HarmonyPatch(typeof(GS), nameof(GS.RunFlowScript))]
-        public static class Patch_test1
+        public static class Patch_Test1
         {
             public static void Prefix(string uscript_name)
             {
